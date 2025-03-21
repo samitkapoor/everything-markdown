@@ -2,7 +2,7 @@
 
 ## Description
 
-A Markdown renderer that renders everything (Codeblocks, Tables, Images, etc.) in React.
+A easy to use, powerful and lightweight Markdown renderer for React that supports code blocks, tables, images, lists, headings, and more—ensuring full Markdown compatibility with ease. 🚀
 
 ## Installation
 
