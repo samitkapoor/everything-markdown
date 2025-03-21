@@ -1,12 +1,19 @@
 {
   "name": "everything-markdown",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Markdown renderer that renders everything (Codeblocks, Tables, Images, etc.)",
   "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
   "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepare": "npm run build"
   },
   "keywords": [],
   "author": "",
@@ -26,11 +33,6 @@
     "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^5.8.2"
   },
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
   "peerDependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

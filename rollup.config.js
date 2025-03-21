@@ -6,7 +6,7 @@ import json from '@rollup/plugin-json';
 import pkg from './package.json' assert { type: 'json' };
 
 export default {
-  input: 'src/EverythingMarkdown.tsx',
+  input: 'src/index.tsx',
   output: [
     {
       file: pkg.main,
@@ -24,7 +24,15 @@ export default {
     resolve(),
     commonjs(),
     json(),
-    typescript({ useTsconfigDeclarationDir: true })
+    typescript({
+      useTsconfigDeclarationDir: true,
+      tsconfigOverride: {
+        compilerOptions: {
+          declaration: true,
+          declarationDir: './dist'
+        }
+      }
+    })
   ],
   external: ['react', 'react-dom']
 };
