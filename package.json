@@ -1,6 +1,6 @@
 {
   "name": "everything-markdown",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A Markdown renderer that renders everything (Codeblocks, Tables, Images, etc.)",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",

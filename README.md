@@ -1,16 +1,14 @@
 # everything-markdown
 
-## Description
-
 A easy to use, powerful and lightweight Markdown renderer for React that supports code blocks, tables, images, lists, headings, and more—ensuring full Markdown compatibility with ease. 🚀
 
-## Installation
+### Installation
 
 ```
 npm install everything-markdown
 ```
 
-## Usage
+### Usage
 
 ```javascript
 import EverythingMarkdown from 'everything-markdown';
@@ -27,7 +25,7 @@ function MyComponent() {
 export default MyComponent;
 ```
 
-## Features
+### Features
 
 - **Comprehensive Markdown Rendering**: Supports a wide range of Markdown elements, including headers, paragraphs, lists, code blocks, tables, images, and more.
 
