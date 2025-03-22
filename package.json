@@ -1,23 +1,19 @@
 {
   "name": "everything-markdown",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "A Markdown renderer that renders everything (Codeblocks, Tables, Images, etc.)",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
   "types": "./dist/index.d.ts",
-  "style": "./dist/styles.css",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.esm.js",
       "require": "./dist/index.js"
-    },
-    "./styles.css": "./dist/styles.css"
+    }
   },
-  "sideEffects": [
-    "*.css"
-  ],
+  "sideEffects": true,
   "files": [
     "dist"
   ],

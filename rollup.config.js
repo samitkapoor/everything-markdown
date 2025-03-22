@@ -6,7 +6,7 @@ import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
-import { dirname, resolve as pathResolve } from 'path';
+import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -38,10 +38,10 @@ export default {
       include: 'node_modules/**'
     }),
     postcss({
-      extract: true,
+      inject: true,
       modules: false,
       minimize: true,
-      extract: pathResolve(__dirname, 'dist/styles.css')
+      sourceMap: true
     }),
     json(),
     typescript({

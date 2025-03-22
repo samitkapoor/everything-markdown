@@ -71,7 +71,15 @@ const EverythingMarkdown = ({ content }: { content: string }) => {
           content: (
             <CodeBlock code={codeBlockLines.join('\n')} language={codeLanguage}>
               <CodeBlock.Code
-                className={`bg-[#2f2f2f6f] overflow-auto p-4 rounded-xl shadow-lg max-w-[800px] h-auto hide-scrollbar`}
+                style={{
+                  backgroundColor: '#1e1e1f',
+                  overflow: 'auto',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
+                  maxWidth: '800px',
+                  height: 'auto'
+                }}
               >
                 <div className="table-row">
                   <CodeBlock.LineContent className="table-cell text-sm">
