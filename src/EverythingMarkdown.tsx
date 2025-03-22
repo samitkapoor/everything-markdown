@@ -1,5 +1,6 @@
 import React from 'react';
 import { CodeBlock } from 'react-code-block';
+import './styles.css';
 
 // Define types for markdown tokens
 interface MarkdownToken {
@@ -161,7 +162,7 @@ const EverythingMarkdown = ({ content }: { content: string }) => {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="markdown-container">
       {tokens.map((token, index) => (
         <RenderToken key={index} token={token} />
       ))}
@@ -245,45 +246,45 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
   switch (token.type) {
     case 'h1':
       return (
-        <h1 className="text-3xl font-bold my-2">
+        <h1 className="markdown-h1">
           <RenderLine line={token.content} />
         </h1>
       );
     case 'h2':
       return (
-        <h2 className="text-2xl font-bold mt-4">
+        <h2 className="markdown-h2">
           <RenderLine line={token.content} />
         </h2>
       );
     case 'h3':
       return (
-        <h3 className="text-xl font-bold mt-4">
+        <h3 className="markdown-h3">
           <RenderLine line={token.content} />
         </h3>
       );
     case 'h4':
       return (
-        <h4 className="text-lg font-bold mt-4">
+        <h4 className="markdown-h4">
           <RenderLine line={token.content} />
         </h4>
       );
     case 'h5':
       return (
-        <h5 className="text-base font-bold mt-4">
+        <h5 className="markdown-h5">
           <RenderLine line={token.content} />
         </h5>
       );
     case 'h6':
       return (
-        <h6 className="text-sm font-bold mt-4">
+        <h6 className="markdown-h6">
           <RenderLine line={token.content} />
         </h6>
       );
     case 'li':
       if (token.ordered) {
         return (
-          <div className="ml-6 mt-1 flex gap-2">
-            <span className="font-bold">•</span>
+          <div className="markdown-list-item">
+            <span className="markdown-bullet">•</span>
             <div>
               <RenderLine line={token.content} />
             </div>
@@ -291,8 +292,8 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
         );
       } else if (token.checked !== undefined) {
         return (
-          <div className="ml-6 flex gap-2 items-center">
-            <input type="checkbox" checked={token.checked} readOnly className="h-4 w-4" />
+          <div className="markdown-list-item">
+            <input type="checkbox" checked={token.checked} readOnly className="markdown-checkbox" />
             <div>
               <RenderLine line={token.content} />
             </div>
@@ -300,8 +301,8 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
         );
       } else {
         return (
-          <div className="ml-6 flex gap-2">
-            <span className="font-bold">•</span>
+          <div className="markdown-list-item">
+            <span className="markdown-bullet">•</span>
             <div>
               <RenderLine line={token.content} />
             </div>
@@ -309,25 +310,25 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
         );
       }
     case 'hr':
-      return <hr className="my-4 border-gray-300" />;
+      return <hr className="markdown-hr" />;
     case 'codeblock':
-      return <div className="my-4">{token.content}</div>;
+      return <div className="markdown-code-block hide-scrollbar">{token.content}</div>;
     case 'blockquote':
       return (
-        <blockquote className="border-l-4 border-gray-300 pl-4 py-1 my-2 italic bg-gray-50 dark:bg-gray-800">
+        <blockquote className="markdown-blockquote">
           <RenderLine line={token.content} />
         </blockquote>
       );
     case 'table':
       return (
-        <div className="overflow-x-auto my-4">
-          <table className="min-w-full border-collapse">
+        <div className="markdown-table-container">
+          <table className="markdown-table">
             {token.tableData && (
               <>
                 <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700">
+                  <tr>
                     {token.tableData[0].map((header, i) => (
-                      <th key={i} className="border px-4 py-2">
+                      <th key={i}>
                         <RenderLine line={header} />
                       </th>
                     ))}
@@ -335,9 +336,9 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
                 </thead>
                 <tbody>
                   {token.tableData.slice(1).map((row, i) => (
-                    <tr key={i} className="even:bg-gray-50 dark:even:bg-gray-800">
+                    <tr key={i}>
                       {row.map((cell, j) => (
-                        <td key={j} className="border px-4 py-2">
+                        <td key={j}>
                           <RenderLine line={cell} />
                         </td>
                       ))}
@@ -351,13 +352,13 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
       );
     case 'img':
       return (
-        <div className="my-2">
-          <img src={token.url} alt={token.alt || ''} className="max-w-full h-auto rounded-lg" />
+        <div className="markdown-image-container">
+          <img src={token.url} alt={token.alt || ''} className="markdown-image" />
         </div>
       );
     case 'p':
       return (
-        <p className="mb-0">
+        <p>
           <RenderLine line={token.content} />
         </p>
       );
@@ -384,10 +385,7 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
             return <span key={index}>{el.content}</span>;
           case 'code':
             return (
-              <span
-                key={index}
-                className="bg-[#00000050] text-orange-400 px-1 py-1 text-sm rounded-md font-mono"
-              >
+              <span key={index} className="markdown-code">
                 {el.content}
               </span>
             );
@@ -398,7 +396,7 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
                 href={el.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
+                className="markdown-link"
               >
                 {el.content}
               </a>
@@ -411,12 +409,7 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
             return <del key={index}>{el.content}</del>;
           case 'image':
             return (
-              <img
-                key={index}
-                src={el.url}
-                alt={el.alt || ''}
-                className="inline-block max-h-6 align-text-bottom mx-1"
-              />
+              <img key={index} src={el.url} alt={el.alt || ''} className="markdown-inline-image" />
             );
           default:
             return null;
