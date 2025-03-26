@@ -14,3 +14,10 @@ All notable changes to this package will be documented in this file.
 ### Added
 
 - Added CHANGELOG.md file
+
+### [1.0.13] - 2025-03-26
+
+### Added
+
+- Added Contribution Guidelines to README.md
+- Added Homepage, Author and Keywords in package.json
