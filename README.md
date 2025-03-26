@@ -29,3 +29,14 @@ export default MyComponent;
 - **React-based**: Built specifically for React applications, ensuring seamless integration and optimal performance.
 
 - **Lightweight**: Minimal dependencies and optimized bundle size for efficient performance without bloat.
+
+### Contributions
+
+Contributions are welcome. If you'd like to contribute, please follow these steps:
+
+1. **Create an issue**: If you've found a bug or have a feature request, please create an issue. This helps us keep track of what needs to be done, and also allows us to assign it to you.
+2. **Ask to be assigned**: If you're interested in working on an issue, please leave a comment asking to be assigned. We'll assign it to you as long as no one else is already working on it.
+3. **Fork and work on the issue**: Once you've been assigned, you can fork the repo, make the necessary changes, and commit them to your forked repo.
+4. **Create a pull request**: Once you've made the changes, create a pull request. In the PR description, please include the number of the issue it is solving and a brief description of the changes you made.
+
+Thanks for your help!
