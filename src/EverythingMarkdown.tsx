@@ -42,7 +42,7 @@ interface InlineElement {
  * Main Markdown Renderer component
  * Parses and renders markdown content
  */
-const EverythingMarkdown = ({ content }: { content: string }) => {
+const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
   const tokens: MarkdownToken[] = [];
   let isInCodeBlock = false;
   let codeBlockLines: string[] = [];
