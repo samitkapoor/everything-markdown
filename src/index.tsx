@@ -1,2 +1,4 @@
-export { default as EverythingMarkdown } from './EverythingMarkdown';
+import EverythingMarkdown from './EverythingMarkdown';
+
+export default EverythingMarkdown;
 export * from './EverythingMarkdown';
