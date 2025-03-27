@@ -51,7 +51,7 @@ const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
   let tableData: string[][] = [];
   let tableHeaders: string[] = [];
 
-  const lines = content.split('\n');
+  const lines = content?.split('\n') ?? [];
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -107,10 +107,11 @@ const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
     if (line.startsWith('|') && line.endsWith('|')) {
       if (!inTable) {
         inTable = true;
-        tableHeaders = line
-          .split('|')
-          .slice(1, -1)
-          .map((header) => header.trim());
+        tableHeaders =
+          line
+            ?.split('|')
+            ?.slice(1, -1)
+            ?.map((header) => header.trim()) ?? [];
 
         // Skip the separator row
         if (
@@ -123,10 +124,11 @@ const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
           continue;
         }
       } else {
-        const rowData = line
-          .split('|')
-          .slice(1, -1)
-          .map((cell) => cell.trim());
+        const rowData =
+          line
+            ?.split('|')
+            ?.slice(1, -1)
+            ?.map((cell) => cell.trim()) ?? [];
         tableData.push(rowData);
       }
 

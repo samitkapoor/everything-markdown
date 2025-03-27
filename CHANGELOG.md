@@ -21,3 +21,9 @@ All notable changes to this package will be documented in this file.
 
 - Added Contribution Guidelines to README.md
 - Added Homepage, Author and Keywords in package.json
+
+### [1.0.14] - 2025-03-27
+
+### Fixed
+
+- Fixed undefined errors when parsing tables
