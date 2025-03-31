@@ -19,7 +19,8 @@ interface MarkdownToken {
     | 'p'
     | 'blockquote'
     | 'table'
-    | 'img';
+    | 'img'
+    | 'html';
   content?: string | React.ReactNode;
   language?: string;
   url?: string;
@@ -28,6 +29,7 @@ interface MarkdownToken {
   ordered?: boolean;
   checked?: boolean;
   level?: number;
+  htmlContent?: string;
 }
 
 // Interface for nested image content
@@ -39,10 +41,11 @@ interface NestedImageContent {
 
 // Interface for inline text elements
 interface InlineElement {
-  type: 'text' | 'code' | 'link' | 'bold' | 'italic' | 'strikethrough' | 'image';
+  type: 'text' | 'code' | 'link' | 'bold' | 'italic' | 'strikethrough' | 'image' | 'html';
   content: string | NestedImageContent;
   url?: string;
   alt?: string;
+  htmlContent?: string;
 }
 
 /**
@@ -109,7 +112,12 @@ const EverythingMarkdown: React.FC<{
     }
 
     if (isInCodeBlock) {
-      codeBlockLines.push(rawLine); // Use rawLine to preserve indentation
+      // For bash and similar languages, we want to trim the indentation
+      if (['bash', 'sh', 'shell', 'zsh'].includes(codeLanguage.toLowerCase())) {
+        codeBlockLines.push(rawLine.trim());
+      } else {
+        codeBlockLines.push(rawLine); // Use rawLine to preserve indentation for other languages
+      }
       continue;
     }
 
@@ -203,6 +211,15 @@ const getMarkdownElement = (
     return null;
   }
 
+  // Handle HTML elements
+  const htmlMatch = line.match(/^<([a-zA-Z0-9]+)(?:\s+[^>]*)?\/?>/);
+  if (htmlMatch) {
+    return {
+      type: 'html',
+      htmlContent: line
+    };
+  }
+
   // Headers
   if (line.startsWith('# ')) return { type: 'h1', content: line.slice(2) };
   if (line.startsWith('## ')) return { type: 'h2', content: line.slice(3) };
@@ -264,6 +281,8 @@ const getMarkdownElement = (
  */
 const RenderToken = ({ token }: { token: MarkdownToken }) => {
   switch (token.type) {
+    case 'html':
+      return <div dangerouslySetInnerHTML={{ __html: token.htmlContent || '' }} />;
     case 'h1':
       return (
         <h1 className="markdown-h1">
@@ -453,6 +472,12 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
             return (
               <img key={index} src={el.url} alt={el.alt || ''} className="markdown-inline-image" />
             );
+          case 'html':
+            return (
+              <span key={index} className="markdown-html">
+                {el.htmlContent}
+              </span>
+            );
           default:
             return null;
         }
@@ -472,12 +497,13 @@ const parseInlineElements = (text: string): InlineElement[] => {
 
   // Pre-compile regex patterns
   const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/;
+  const htmlRegex = /<([a-zA-Z0-9]+)(?:\s+[^>]*)?\/?>/;
 
   while (i < textLength) {
     const char = text[i];
 
     // Fast path for regular text
-    if (char !== '[' && char !== '!' && char !== '`' && char !== '*') {
+    if (char !== '[' && char !== '!' && char !== '`' && char !== '*' && char !== '<') {
       currentText += char;
       i++;
       continue;
@@ -487,6 +513,20 @@ const parseInlineElements = (text: string): InlineElement[] => {
     if (currentText) {
       elements.push({ type: 'text', content: currentText });
       currentText = '';
+    }
+
+    // Handle HTML elements
+    if (char === '<') {
+      const htmlMatch = text.substring(i).match(htmlRegex);
+      if (htmlMatch) {
+        elements.push({
+          type: 'html',
+          content: '',
+          htmlContent: htmlMatch[0]
+        });
+        i += htmlMatch[0].length;
+        continue;
+      }
     }
 
     // Handle bold text (wrapped in **)

@@ -40,3 +40,15 @@ All notable changes to this package will be documented in this file.
 ### Fixed
 
 - Fixed issue with nested inline markdown elements
+
+## [1.1.2] - 2025-03-31
+
+### Fixed
+
+- Fixed issue with indentation of code blocks for languages like bash and sh
+
+## [1.2.0] - 2025-03-31
+
+### Added
+
+- Added support for HTML elements
