@@ -15,15 +15,28 @@ All notable changes to this package will be documented in this file.
 
 - Added CHANGELOG.md file
 
-### [1.0.13] - 2025-03-26
+## [1.0.13] - 2025-03-26
 
 ### Added
 
 - Added Contribution Guidelines to README.md
 - Added Homepage, Author and Keywords in package.json
 
-### [1.0.14] - 2025-03-27
+## [1.0.14] - 2025-03-27
 
 ### Fixed
 
 - Fixed undefined errors when parsing tables
+
+## [1.1.0] - 2025-03-31
+
+### Added
+
+- Added support for nested images in links
+- Added support for dual theme (light and dark)
+
+## [1.1.1] - 2025-03-31
+
+### Fixed
+
+- Fixed issue with nested inline markdown elements

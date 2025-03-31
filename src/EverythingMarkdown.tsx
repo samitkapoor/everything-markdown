@@ -30,10 +30,17 @@ interface MarkdownToken {
   level?: number;
 }
 
+// Interface for nested image content
+interface NestedImageContent {
+  type: 'image';
+  alt: string;
+  url: string;
+}
+
 // Interface for inline text elements
 interface InlineElement {
   type: 'text' | 'code' | 'link' | 'bold' | 'italic' | 'strikethrough' | 'image';
-  content: string;
+  content: string | NestedImageContent;
   url?: string;
   alt?: string;
 }
@@ -42,7 +49,10 @@ interface InlineElement {
  * Main Markdown Renderer component
  * Parses and renders markdown content
  */
-const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
+const EverythingMarkdown: React.FC<{
+  content: string;
+  className?: string;
+}> = ({ content, className }) => {
   const tokens: MarkdownToken[] = [];
   let isInCodeBlock = false;
   let codeBlockLines: string[] = [];
@@ -172,7 +182,7 @@ const EverythingMarkdown: React.FC<{ content: string }> = ({ content }) => {
   }
 
   return (
-    <div className="markdown-container">
+    <div className={`markdown-container ${className || ''}`}>
       {tokens.map((token, index) => (
         <RenderToken key={index} token={token} />
       ))}
@@ -392,11 +402,11 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
       {elements.map((el, index) => {
         switch (el.type) {
           case 'text':
-            return <span key={index}>{el.content}</span>;
+            return <span key={index}>{el.content as string}</span>;
           case 'code':
             return (
               <span key={index} className="markdown-code">
-                {el.content}
+                {el.content as string}
               </span>
             );
           case 'link':
@@ -408,15 +418,37 @@ const RenderLine = ({ line }: { line?: string | React.ReactNode }) => {
                 rel="noopener noreferrer"
                 className="markdown-link"
               >
-                {el.content}
+                {typeof el.content === 'object' &&
+                'type' in el.content &&
+                el.content.type === 'image' ? (
+                  <img
+                    src={(el.content as NestedImageContent).url}
+                    alt={(el.content as NestedImageContent).alt || ''}
+                    className="markdown-inline-image"
+                  />
+                ) : (
+                  <RenderLine line={el.content as string} />
+                )}
               </a>
             );
           case 'bold':
-            return <strong key={index}>{el.content}</strong>;
+            return (
+              <strong key={index}>
+                <RenderLine line={el.content as string} />
+              </strong>
+            );
           case 'italic':
-            return <em key={index}>{el.content}</em>;
+            return (
+              <em key={index}>
+                <RenderLine line={el.content as string} />
+              </em>
+            );
           case 'strikethrough':
-            return <del key={index}>{el.content}</del>;
+            return (
+              <del key={index}>
+                <RenderLine line={el.content as string} />
+              </del>
+            );
           case 'image':
             return (
               <img key={index} src={el.url} alt={el.alt || ''} className="markdown-inline-image" />
@@ -436,35 +468,82 @@ const parseInlineElements = (text: string): InlineElement[] => {
   const elements: InlineElement[] = [];
   let i = 0;
   let currentText = '';
+  const textLength = text.length;
 
-  while (i < text.length) {
-    // Check for link [text](url)
-    if (text[i] === '[' && !text.substring(i).startsWith('![')) {
-      const linkMatch = text.substring(i).match(/\[([^\]]+)\]\(([^)]+)\)/);
-      if (linkMatch) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
-        }
+  // Pre-compile regex patterns
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/;
 
-        elements.push({
-          type: 'link',
-          content: linkMatch[1],
-          url: linkMatch[2]
-        });
+  while (i < textLength) {
+    const char = text[i];
 
-        i += linkMatch[0].length;
+    // Fast path for regular text
+    if (char !== '[' && char !== '!' && char !== '`' && char !== '*') {
+      currentText += char;
+      i++;
+      continue;
+    }
+
+    // Handle accumulated text
+    if (currentText) {
+      elements.push({ type: 'text', content: currentText });
+      currentText = '';
+    }
+
+    // Handle bold text (wrapped in **)
+    if (char === '*' && i + 1 < textLength && text[i + 1] === '*') {
+      let boldText = '';
+      i += 2; // Move past the opening **
+
+      while (i < textLength - 1 && !(text[i] === '*' && text[i + 1] === '*')) {
+        boldText += text[i];
+        i++;
+      }
+
+      if (i < textLength - 1 && text[i] === '*' && text[i + 1] === '*') {
+        elements.push({ type: 'bold', content: boldText });
+        i += 2; // Move past the closing **
+        continue;
+      } else {
+        // If no closing **, treat as regular text
+        currentText = '**' + boldText;
         continue;
       }
     }
 
-    // Check for image ![alt](url)
-    if (text.substring(i).startsWith('![')) {
-      const imgMatch = text.substring(i).match(/!\[([^\]]*)\]\(([^)]+)\)/);
+    // Handle inline code blocks
+    if (char === '`') {
+      let codeText = '';
+      i++; // Move past the opening backtick
+
+      while (i < textLength && text[i] !== '`') {
+        codeText += text[i];
+        i++;
+      }
+
+      if (i < textLength) {
+        elements.push({ type: 'code', content: codeText });
+        i++; // Move past the closing backtick
+        continue;
+      } else {
+        // If no closing backtick found, treat as regular text
+        currentText = '`' + codeText;
+        continue;
+      }
+    }
+
+    // Check for standalone image ![alt](url) first
+    if (char === '!' && text[i + 1] === '[') {
+      const imgMatch = text.substring(i).match(imageRegex);
       if (imgMatch) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
+        const fullMatch = imgMatch[0];
+        const nextChar = text[i + fullMatch.length];
+
+        // Check if this image is part of a link
+        if (nextChar === ']' && text[i + fullMatch.length + 1] === '(') {
+          // This is a nested image in a link, skip processing here
+          currentText += char;
+          i++;
+          continue;
         }
 
         elements.push({
@@ -473,100 +552,76 @@ const parseInlineElements = (text: string): InlineElement[] => {
           alt: imgMatch[1],
           url: imgMatch[2]
         });
-
-        i += imgMatch[0].length;
+        i += fullMatch.length;
         continue;
       }
     }
 
-    // Check for bold **text**
-    if (text.substring(i).startsWith('**')) {
-      const matchEnd = text.indexOf('**', i + 2);
-      if (matchEnd !== -1) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
+    // Check for link [text](url)
+    if (char === '[') {
+      let bracketCount = 1;
+      let j = i + 1;
+      let linkText = '';
+      let isNested = false;
+
+      // Find the matching closing bracket while preserving nested content
+      while (j < textLength && bracketCount > 0) {
+        const currentChar = text[j];
+        if (currentChar === '[') {
+          bracketCount++;
+          isNested = true;
         }
-
-        elements.push({
-          type: 'bold',
-          content: text.substring(i + 2, matchEnd)
-        });
-
-        i = matchEnd + 2;
-        continue;
+        if (currentChar === ']') bracketCount--;
+        linkText += currentChar;
+        j++;
       }
-    }
 
-    // Check for italic *text*
-    if (
-      text[i] === '*' &&
-      (i === 0 || text[i - 1] !== '*') &&
-      (i === text.length - 1 || text[i + 1] !== '*')
-    ) {
-      const matchEnd = text.indexOf('*', i + 1);
-      if (
-        matchEnd !== -1 &&
-        text[matchEnd - 1] !== '*' &&
-        (matchEnd === text.length - 1 || text[matchEnd + 1] !== '*')
-      ) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
+      // Remove the last character (closing bracket)
+      linkText = linkText.slice(0, -1);
+
+      // Look for the URL in parentheses
+      if (j < textLength && text[j] === '(') {
+        j++;
+        const urlStart = j;
+        while (j < textLength && text[j] !== ')') j++;
+
+        if (j < textLength) {
+          const linkUrl = text.substring(urlStart, j);
+
+          // Handle nested image in link
+          if (linkText.startsWith('![')) {
+            const imgMatch = linkText.match(imageRegex);
+            if (imgMatch) {
+              elements.push({
+                type: 'link',
+                content: {
+                  type: 'image',
+                  alt: imgMatch[1],
+                  url: imgMatch[2]
+                },
+                url: linkUrl
+              });
+            }
+          } else {
+            elements.push({
+              type: 'link',
+              content: linkText,
+              url: linkUrl
+            });
+          }
+
+          i = j + 1; // Move past the closing parenthesis
+          continue;
         }
-
-        elements.push({
-          type: 'italic',
-          content: text.substring(i + 1, matchEnd)
-        });
-
-        i = matchEnd + 1;
-        continue;
       }
     }
 
-    // Check for strikethrough ~~text~~
-    if (text.substring(i).startsWith('~~')) {
-      const matchEnd = text.indexOf('~~', i + 2);
-      if (matchEnd !== -1) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
-        }
-
-        elements.push({
-          type: 'strikethrough',
-          content: text.substring(i + 2, matchEnd)
-        });
-
-        i = matchEnd + 2;
-        continue;
-      }
-    }
-
-    // Check for inline code `code`
-    if (text[i] === '`') {
-      const matchEnd = text.indexOf('`', i + 1);
-      if (matchEnd !== -1) {
-        if (currentText) {
-          elements.push({ type: 'text', content: currentText });
-          currentText = '';
-        }
-
-        elements.push({
-          type: 'code',
-          content: text.substring(i + 1, matchEnd)
-        });
-
-        i = matchEnd + 1;
-        continue;
-      }
-    }
-
-    currentText += text[i];
+    // If we get here, it's regular text
+    currentText += char;
     i++;
   }
 
+  // Handle any remaining text
   if (currentText) {
     elements.push({ type: 'text', content: currentText });
   }
