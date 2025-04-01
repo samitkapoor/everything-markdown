@@ -52,3 +52,9 @@ All notable changes to this package will be documented in this file.
 ### Added
 
 - Added support for HTML elements
+
+## [1.2.1] - 2025-04-01
+
+### Fixed
+
+- Skipping comments inside markdown

@@ -48,6 +48,13 @@ interface InlineElement {
   htmlContent?: string;
 }
 
+// Pre-compile regex patterns
+const IMAGE_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/;
+const HTML_REGEX = /<([a-zA-Z0-9]+)(?:\s+[^>]*)?\/?>/;
+const HR_REGEX = /^(\*{3,}|-{3,}|_{3,})$/;
+const ORDERED_LIST_REGEX = /^\d+\.\s/;
+const UNORDERED_LIST_REGEX = /^[\*\-\+]\s/;
+
 /**
  * Main Markdown Renderer component
  * Parses and renders markdown content
@@ -56,6 +63,7 @@ const EverythingMarkdown: React.FC<{
   content: string;
   className?: string;
 }> = ({ content, className }) => {
+  const cleanContent = content.replace(/<!--[\s\S]*?-->/g, '');
   const tokens: MarkdownToken[] = [];
   let isInCodeBlock = false;
   let codeBlockLines: string[] = [];
@@ -63,18 +71,41 @@ const EverythingMarkdown: React.FC<{
   let inTable = false;
   let tableData: string[][] = [];
   let tableHeaders: string[] = [];
+  let isInMultilineComment = false;
 
-  const lines = content?.split('\n') ?? [];
+  const handleComments = (
+    line: string,
+    language: string
+  ): { shouldSkip: boolean; isCommentEnd: boolean } => {
+    const trimmed = line.trim();
+    const lang = language.toLowerCase();
+
+    if (['javascript', 'typescript', 'js', 'ts', 'css', 'scss', 'sass'].includes(lang)) {
+      if (trimmed.startsWith('//')) return { shouldSkip: true, isCommentEnd: true };
+      if (trimmed.includes('/*') && !trimmed.includes('*/'))
+        return { shouldSkip: true, isCommentEnd: false };
+      if (trimmed.includes('*/')) return { shouldSkip: true, isCommentEnd: true };
+    } else if (['html', 'xml'].includes(lang)) {
+      if (trimmed.includes('<!--') && !trimmed.includes('-->'))
+        return { shouldSkip: true, isCommentEnd: false };
+      if (trimmed.includes('-->')) return { shouldSkip: true, isCommentEnd: true };
+    } else if (['python', 'ruby', 'bash', 'sh', 'shell', 'zsh'].includes(lang)) {
+      return { shouldSkip: trimmed.startsWith('#'), isCommentEnd: true };
+    }
+
+    return { shouldSkip: false, isCommentEnd: false };
+  };
+
+  const lines = cleanContent?.split('\n') ?? [];
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const line = rawLine.trim();
 
-    // Handle code blocks
     if (line.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
-        // Extract language if specified
+        isInMultilineComment = false;
         const langMatch = line.match(/^```(\w+)/);
         codeLanguage = langMatch && langMatch[1] ? langMatch[1] : 'plaintext';
         if (codeLanguage === 'markdown') continue;
@@ -106,22 +137,22 @@ const EverythingMarkdown: React.FC<{
         });
         codeBlockLines = [];
         isInCodeBlock = false;
+        isInMultilineComment = false;
         codeLanguage = 'plaintext';
       }
       continue;
     }
 
     if (isInCodeBlock) {
-      // For bash and similar languages, we want to trim the indentation
+      // Inside code blocks, preserve all content including comments
       if (['bash', 'sh', 'shell', 'zsh'].includes(codeLanguage.toLowerCase())) {
         codeBlockLines.push(rawLine.trim());
       } else {
-        codeBlockLines.push(rawLine); // Use rawLine to preserve indentation for other languages
+        codeBlockLines.push(rawLine);
       }
       continue;
     }
 
-    // Handle tables
     if (line.startsWith('|') && line.endsWith('|')) {
       if (!inTable) {
         inTable = true;
@@ -131,7 +162,6 @@ const EverythingMarkdown: React.FC<{
             ?.slice(1, -1)
             ?.map((header) => header.trim()) ?? [];
 
-        // Skip the separator row
         if (
           i + 1 < lines.length &&
           lines[i + 1].trim().startsWith('|') &&
@@ -150,7 +180,6 @@ const EverythingMarkdown: React.FC<{
         tableData.push(rowData);
       }
 
-      // Check if the next line is not a table row
       if (i + 1 >= lines.length || !lines[i + 1].trim().startsWith('|')) {
         tokens.push({
           type: 'table',
@@ -163,7 +192,6 @@ const EverythingMarkdown: React.FC<{
       continue;
     }
 
-    // Reset table state if line is not a table
     if (inTable && !line.startsWith('|')) {
       tokens.push({
         type: 'table',
@@ -174,14 +202,12 @@ const EverythingMarkdown: React.FC<{
       tableHeaders = [];
     }
 
-    // Handle other markdown elements
-    const markdownElement = getMarkdownElement(line, lines, i);
+    const markdownElement = getMarkdownElement(line);
     if (markdownElement) {
       tokens.push(markdownElement);
     }
   }
 
-  // Clean up any unfinished tables
   if (inTable) {
     tokens.push({
       type: 'table',
@@ -201,26 +227,12 @@ const EverythingMarkdown: React.FC<{
 /**
  * Parse a line of markdown into a token
  */
-const getMarkdownElement = (
-  line: string,
-  allLines: string[],
-  currentIndex: number
-): MarkdownToken | null => {
-  // Handle empty lines
-  if (line.length === 0) {
-    return null;
-  }
+const getMarkdownElement = (line: string): MarkdownToken | null => {
+  if (line.length === 0) return null;
 
-  // Handle HTML elements
-  const htmlMatch = line.match(/^<([a-zA-Z0-9]+)(?:\s+[^>]*)?\/?>/);
-  if (htmlMatch) {
-    return {
-      type: 'html',
-      htmlContent: line
-    };
-  }
+  const htmlMatch = line.match(HTML_REGEX);
+  if (htmlMatch) return { type: 'html', htmlContent: line };
 
-  // Headers
   if (line.startsWith('# ')) return { type: 'h1', content: line.slice(2) };
   if (line.startsWith('## ')) return { type: 'h2', content: line.slice(3) };
   if (line.startsWith('### ')) return { type: 'h3', content: line.slice(4) };
@@ -228,51 +240,28 @@ const getMarkdownElement = (
   if (line.startsWith('##### ')) return { type: 'h5', content: line.slice(6) };
   if (line.startsWith('###### ')) return { type: 'h6', content: line.slice(7) };
 
-  // Blockquote
-  if (line.startsWith('> ')) {
-    return { type: 'blockquote', content: line.slice(2) };
+  if (line.startsWith('> ')) return { type: 'blockquote', content: line.slice(2) };
+
+  if (line.match(HR_REGEX)) return { type: 'hr' };
+
+  if (line.match(ORDERED_LIST_REGEX)) {
+    return { type: 'li', content: line.replace(ORDERED_LIST_REGEX, ''), ordered: true };
   }
 
-  // Horizontal rule
-  if (line.match(/^(\*{3,}|-{3,}|_{3,})$/)) {
-    return { type: 'hr' };
-  }
-
-  // Ordered list
-  if (line.match(/^\d+\.\s/)) {
-    const content = line.replace(/^\d+\.\s/, '');
-    return { type: 'li', content, ordered: true };
-  }
-
-  // Unordered list or task list
-  if (line.match(/^[\*\-\+]\s/)) {
-    const content = line.replace(/^[\*\-\+]\s/, '');
-
-    // Task list item
+  if (line.match(UNORDERED_LIST_REGEX)) {
+    const content = line.replace(UNORDERED_LIST_REGEX, '');
     if (content.startsWith('[ ] ') || content.startsWith('[x] ') || content.startsWith('[X] ')) {
       const checked = content.startsWith('[x]') || content.startsWith('[X]');
-      return {
-        type: 'li',
-        content: content.slice(4),
-        ordered: false,
-        checked
-      };
+      return { type: 'li', content: content.slice(4), ordered: false, checked };
     }
-
     return { type: 'li', content, ordered: false };
   }
 
-  // Image
   const imageMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
   if (imageMatch) {
-    return {
-      type: 'img',
-      alt: imageMatch[1],
-      url: imageMatch[2]
-    };
+    return { type: 'img', alt: imageMatch[1], url: imageMatch[2] };
   }
 
-  // Regular paragraph
   return { type: 'p', content: line };
 };
 
@@ -320,34 +309,18 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
         </h6>
       );
     case 'li':
-      if (token.ordered) {
-        return (
-          <div className="markdown-list-item">
-            <span className="markdown-bullet">•</span>
-            <div>
-              <RenderLine line={token.content} />
-            </div>
-          </div>
-        );
-      } else if (token.checked !== undefined) {
-        return (
-          <div className="markdown-list-item">
+      return (
+        <div className="markdown-list-item">
+          {token.checked !== undefined ? (
             <input type="checkbox" checked={token.checked} readOnly className="markdown-checkbox" />
-            <div>
-              <RenderLine line={token.content} />
-            </div>
-          </div>
-        );
-      } else {
-        return (
-          <div className="markdown-list-item">
+          ) : (
             <span className="markdown-bullet">•</span>
-            <div>
-              <RenderLine line={token.content} />
-            </div>
+          )}
+          <div>
+            <RenderLine line={token.content} />
           </div>
-        );
-      }
+        </div>
+      );
     case 'hr':
       return <hr className="markdown-hr" />;
     case 'codeblock':
@@ -495,44 +468,32 @@ const parseInlineElements = (text: string): InlineElement[] => {
   let currentText = '';
   const textLength = text.length;
 
-  // Pre-compile regex patterns
-  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/;
-  const htmlRegex = /<([a-zA-Z0-9]+)(?:\s+[^>]*)?\/?>/;
-
   while (i < textLength) {
     const char = text[i];
 
-    // Fast path for regular text
     if (char !== '[' && char !== '!' && char !== '`' && char !== '*' && char !== '<') {
       currentText += char;
       i++;
       continue;
     }
 
-    // Handle accumulated text
     if (currentText) {
       elements.push({ type: 'text', content: currentText });
       currentText = '';
     }
 
-    // Handle HTML elements
     if (char === '<') {
-      const htmlMatch = text.substring(i).match(htmlRegex);
+      const htmlMatch = text.substring(i).match(HTML_REGEX);
       if (htmlMatch) {
-        elements.push({
-          type: 'html',
-          content: '',
-          htmlContent: htmlMatch[0]
-        });
+        elements.push({ type: 'html', content: '', htmlContent: htmlMatch[0] });
         i += htmlMatch[0].length;
         continue;
       }
     }
 
-    // Handle bold text (wrapped in **)
     if (char === '*' && i + 1 < textLength && text[i + 1] === '*') {
       let boldText = '';
-      i += 2; // Move past the opening **
+      i += 2;
 
       while (i < textLength - 1 && !(text[i] === '*' && text[i + 1] === '*')) {
         boldText += text[i];
@@ -541,19 +502,16 @@ const parseInlineElements = (text: string): InlineElement[] => {
 
       if (i < textLength - 1 && text[i] === '*' && text[i + 1] === '*') {
         elements.push({ type: 'bold', content: boldText });
-        i += 2; // Move past the closing **
-        continue;
+        i += 2;
       } else {
-        // If no closing **, treat as regular text
         currentText = '**' + boldText;
-        continue;
       }
+      continue;
     }
 
-    // Handle inline code blocks
     if (char === '`') {
       let codeText = '';
-      i++; // Move past the opening backtick
+      i++;
 
       while (i < textLength && text[i] !== '`') {
         codeText += text[i];
@@ -562,25 +520,20 @@ const parseInlineElements = (text: string): InlineElement[] => {
 
       if (i < textLength) {
         elements.push({ type: 'code', content: codeText });
-        i++; // Move past the closing backtick
-        continue;
+        i++;
       } else {
-        // If no closing backtick found, treat as regular text
         currentText = '`' + codeText;
-        continue;
       }
+      continue;
     }
 
-    // Check for standalone image ![alt](url) first
     if (char === '!' && text[i + 1] === '[') {
-      const imgMatch = text.substring(i).match(imageRegex);
+      const imgMatch = text.substring(i).match(IMAGE_REGEX);
       if (imgMatch) {
         const fullMatch = imgMatch[0];
         const nextChar = text[i + fullMatch.length];
 
-        // Check if this image is part of a link
         if (nextChar === ']' && text[i + fullMatch.length + 1] === '(') {
-          // This is a nested image in a link, skip processing here
           currentText += char;
           i++;
           continue;
@@ -597,29 +550,21 @@ const parseInlineElements = (text: string): InlineElement[] => {
       }
     }
 
-    // Check for link [text](url)
     if (char === '[') {
       let bracketCount = 1;
       let j = i + 1;
       let linkText = '';
-      let isNested = false;
 
-      // Find the matching closing bracket while preserving nested content
       while (j < textLength && bracketCount > 0) {
         const currentChar = text[j];
-        if (currentChar === '[') {
-          bracketCount++;
-          isNested = true;
-        }
+        if (currentChar === '[') bracketCount++;
         if (currentChar === ']') bracketCount--;
         linkText += currentChar;
         j++;
       }
 
-      // Remove the last character (closing bracket)
       linkText = linkText.slice(0, -1);
 
-      // Look for the URL in parentheses
       if (j < textLength && text[j] === '(') {
         j++;
         const urlStart = j;
@@ -628,9 +573,8 @@ const parseInlineElements = (text: string): InlineElement[] => {
         if (j < textLength) {
           const linkUrl = text.substring(urlStart, j);
 
-          // Handle nested image in link
           if (linkText.startsWith('![')) {
-            const imgMatch = linkText.match(imageRegex);
+            const imgMatch = linkText.match(IMAGE_REGEX);
             if (imgMatch) {
               elements.push({
                 type: 'link',
@@ -643,25 +587,19 @@ const parseInlineElements = (text: string): InlineElement[] => {
               });
             }
           } else {
-            elements.push({
-              type: 'link',
-              content: linkText,
-              url: linkUrl
-            });
+            elements.push({ type: 'link', content: linkText, url: linkUrl });
           }
 
-          i = j + 1; // Move past the closing parenthesis
+          i = j + 1;
           continue;
         }
       }
     }
 
-    // If we get here, it's regular text
     currentText += char;
     i++;
   }
 
-  // Handle any remaining text
   if (currentText) {
     elements.push({ type: 'text', content: currentText });
   }
