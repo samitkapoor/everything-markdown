@@ -1,6 +1,6 @@
 {
   "name": "everything-markdown",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "A Markdown renderer that renders everything (Codeblocks, Tables, Images, etc.)",
   "homepage": "https://github.com/samitkapoor/everything-markdown",
   "main": "./dist/index.js",

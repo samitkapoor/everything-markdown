@@ -2,8 +2,8 @@ import React from 'react';
 import { CodeBlock } from 'react-code-block';
 import './styles.css';
 
-// Define types for markdown tokens
-interface MarkdownToken {
+// Base markdown token interface
+interface BaseMarkdownToken {
   type:
     | 'h1'
     | 'h2'
@@ -21,16 +21,59 @@ interface MarkdownToken {
     | 'table'
     | 'img'
     | 'html';
+}
+
+// Text content token
+interface TextMarkdownToken extends BaseMarkdownToken {
+  type: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'blockquote' | 'li';
   content?: string | React.ReactNode;
-  language?: string;
-  url?: string;
-  alt?: string;
-  tableData?: string[][];
   ordered?: boolean;
   checked?: boolean;
-  level?: number;
-  htmlContent?: string;
 }
+
+// List token
+interface ListMarkdownToken extends BaseMarkdownToken {
+  type: 'ul' | 'ol';
+  items: TextMarkdownToken[];
+  ordered: boolean;
+}
+
+// Other token types
+interface CodeBlockMarkdownToken extends BaseMarkdownToken {
+  type: 'codeblock';
+  content: React.ReactNode;
+  language: string;
+}
+
+interface TableMarkdownToken extends BaseMarkdownToken {
+  type: 'table';
+  tableData: string[][];
+}
+
+interface ImageMarkdownToken extends BaseMarkdownToken {
+  type: 'img';
+  url: string;
+  alt?: string;
+}
+
+interface HtmlMarkdownToken extends BaseMarkdownToken {
+  type: 'html';
+  htmlContent: string;
+}
+
+interface HrMarkdownToken extends BaseMarkdownToken {
+  type: 'hr';
+}
+
+// Union type for all token types
+type MarkdownToken =
+  | TextMarkdownToken
+  | ListMarkdownToken
+  | CodeBlockMarkdownToken
+  | TableMarkdownToken
+  | ImageMarkdownToken
+  | HtmlMarkdownToken
+  | HrMarkdownToken;
 
 // Interface for nested image content
 interface NestedImageContent {
@@ -72,6 +115,8 @@ const EverythingMarkdown: React.FC<{
   let tableData: string[][] = [];
   let tableHeaders: string[] = [];
   let isInMultilineComment = false;
+  let currentListItems: TextMarkdownToken[] = [];
+  let currentListType: 'ul' | 'ol' | null = null;
 
   const handleComments = (
     line: string,
@@ -102,6 +147,19 @@ const EverythingMarkdown: React.FC<{
     const rawLine = lines[i];
     const line = rawLine.trim();
 
+    // If the line is not a list item but we have accumulated list items
+    const isListItem = line.match(ORDERED_LIST_REGEX) || line.match(UNORDERED_LIST_REGEX);
+    if (!isListItem && currentListItems.length > 0) {
+      // Add the list to tokens and reset current list
+      tokens.push({
+        type: currentListType as 'ul' | 'ol',
+        items: currentListItems,
+        ordered: currentListType === 'ol'
+      });
+      currentListItems = [];
+      currentListType = null;
+    }
+
     if (line.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
@@ -121,8 +179,9 @@ const EverythingMarkdown: React.FC<{
                   padding: '1rem',
                   borderRadius: '0.5rem',
                   boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
-                  maxWidth: '800px',
-                  height: 'auto'
+                  maxWidth: '100%',
+                  height: 'auto',
+                  fontSize: 'var(--code-font-size, 0.875rem)'
                 }}
               >
                 <div className="table-row">
@@ -204,8 +263,40 @@ const EverythingMarkdown: React.FC<{
 
     const markdownElement = getMarkdownElement(line);
     if (markdownElement) {
-      tokens.push(markdownElement);
+      if (markdownElement.type === 'li') {
+        // Determine list type (ordered or unordered)
+        const newListType = markdownElement.ordered ? 'ol' : 'ul';
+
+        // If this is a new list or different type of list
+        if (currentListType === null || currentListType !== newListType) {
+          // Flush any existing list
+          if (currentListItems.length > 0) {
+            tokens.push({
+              type: currentListType as 'ul' | 'ol',
+              items: currentListItems,
+              ordered: currentListType === 'ol'
+            });
+            currentListItems = [];
+          }
+          currentListType = newListType;
+        }
+
+        // Add item to the current list
+        currentListItems.push(markdownElement as TextMarkdownToken);
+      } else {
+        // For non-list elements, add them directly to tokens
+        tokens.push(markdownElement);
+      }
     }
+  }
+
+  // Handle any remaining list items at the end of the document
+  if (currentListItems.length > 0) {
+    tokens.push({
+      type: currentListType as 'ul' | 'ol',
+      items: currentListItems,
+      ordered: currentListType === 'ol'
+    });
   }
 
   if (inTable) {
@@ -271,75 +362,107 @@ const getMarkdownElement = (line: string): MarkdownToken | null => {
 const RenderToken = ({ token }: { token: MarkdownToken }) => {
   switch (token.type) {
     case 'html':
-      return <div dangerouslySetInnerHTML={{ __html: token.htmlContent || '' }} />;
+      return <div dangerouslySetInnerHTML={{ __html: (token as HtmlMarkdownToken).htmlContent }} />;
     case 'h1':
       return (
         <h1 className="markdown-h1">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h1>
       );
     case 'h2':
       return (
         <h2 className="markdown-h2">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h2>
       );
     case 'h3':
       return (
         <h3 className="markdown-h3">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h3>
       );
     case 'h4':
       return (
         <h4 className="markdown-h4">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h4>
       );
     case 'h5':
       return (
         <h5 className="markdown-h5">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h5>
       );
     case 'h6':
       return (
         <h6 className="markdown-h6">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </h6>
       );
-    case 'li':
+    case 'li': {
+      const listToken = token as TextMarkdownToken;
       return (
         <div className="markdown-list-item">
-          {token.checked !== undefined ? (
-            <input type="checkbox" checked={token.checked} readOnly className="markdown-checkbox" />
+          {listToken.checked !== undefined ? (
+            <input
+              type="checkbox"
+              checked={listToken.checked}
+              readOnly
+              className="markdown-checkbox"
+            />
           ) : (
             <span className="markdown-bullet">•</span>
           )}
           <div>
-            <RenderLine line={token.content} />
+            <RenderLine line={listToken.content} />
           </div>
         </div>
       );
+    }
+    case 'ol': {
+      const listToken = token as ListMarkdownToken;
+      return (
+        <ol className="markdown-ol">
+          {listToken.items.map((item, index) => (
+            <RenderToken key={index} token={item} />
+          ))}
+        </ol>
+      );
+    }
+    case 'ul': {
+      const listToken = token as ListMarkdownToken;
+      return (
+        <ul className="markdown-ul">
+          {listToken.items.map((item, index) => (
+            <RenderToken key={index} token={item} />
+          ))}
+        </ul>
+      );
+    }
     case 'hr':
       return <hr className="markdown-hr" />;
     case 'codeblock':
-      return <div className="markdown-code-block hide-scrollbar">{token.content}</div>;
+      return (
+        <div className="markdown-code-block hide-scrollbar">
+          {(token as CodeBlockMarkdownToken).content}
+        </div>
+      );
     case 'blockquote':
       return (
         <blockquote className="markdown-blockquote">
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </blockquote>
       );
-    case 'table':
+    case 'table': {
+      const tableToken = token as TableMarkdownToken;
       return (
         <div className="markdown-table-container">
           <table className="markdown-table">
-            {token.tableData && (
+            {tableToken.tableData && (
               <>
                 <thead>
                   <tr>
-                    {token.tableData[0].map((header, i) => (
+                    {tableToken.tableData[0].map((header, i) => (
                       <th key={i}>
                         <RenderLine line={header} />
                       </th>
@@ -347,7 +470,7 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {token.tableData.slice(1).map((row, i) => (
+                  {tableToken.tableData.slice(1).map((row, i) => (
                     <tr key={i}>
                       {row.map((cell, j) => (
                         <td key={j}>
@@ -362,16 +485,19 @@ const RenderToken = ({ token }: { token: MarkdownToken }) => {
           </table>
         </div>
       );
-    case 'img':
+    }
+    case 'img': {
+      const imgToken = token as ImageMarkdownToken;
       return (
         <div className="markdown-image-container">
-          <img src={token.url} alt={token.alt || ''} className="markdown-image" />
+          <img src={imgToken.url} alt={imgToken.alt || ''} className="markdown-image" />
         </div>
       );
+    }
     case 'p':
       return (
         <p>
-          <RenderLine line={token.content} />
+          <RenderLine line={(token as TextMarkdownToken).content} />
         </p>
       );
     default:

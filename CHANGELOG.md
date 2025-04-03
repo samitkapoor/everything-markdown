@@ -58,3 +58,10 @@ All notable changes to this package will be documented in this file.
 ### Fixed
 
 - Skipping comments inside markdown
+
+## [1.3.0] - 2025-04-03
+
+### Added
+
+- Added support for responsiveness.
+- Improved spacing of lists.
